@@ -1,7 +1,32 @@
 #!/usr/bin/env php
 <?php
 
-require __DIR__ . '/../vendor/autoload.php';
+function findAutoloadFile(): ?string
+{
+    $paths = [
+        __DIR__ . '/../../../autoload.php',
+        __DIR__ . '/../../autoload.php',
+        __DIR__ . '/../autoload.php',
+        __DIR__ . '/vendor/autoload.php', // If running directly inside the package directory.
+    ];
+
+    foreach ($paths as $path) {
+        if (file_exists($path)) {
+            return $path;
+        }
+    }
+
+    return null;
+}
+
+// Try to find and require the autoload file
+$autoloadFile = findAutoloadFile();
+if ($autoloadFile) {
+    require_once $autoloadFile;
+} else {
+    echo 'Autoload not found. Please run "composer install" to generate the autoload file.' . PHP_EOL;
+    exit(1);
+}
 
 use OguzhanTogay\JiraCLI\JiraClient;
 use Dotenv\Dotenv;
