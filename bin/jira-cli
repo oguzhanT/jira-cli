@@ -1,0 +1,19 @@
+#!/usr/bin/env php
+<?php
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use YourVendor\JiraCLI\JiraClient;
+
+$baseUri = getenv('JIRA_SERVER') ?: 'https://your-domain.atlassian.net';
+$username = getenv('JIRA_USERNAME');
+$apiToken = getenv('JIRA_API_TOKEN');
+
+$jiraClient = new JiraClient($baseUri, $username, $apiToken);
+
+$options = getopt("q::m::", ["query::", "max::"]);
+$jql = $options['query'] ?? $options['q'] ?? 'assignee = currentUser() AND resolution = Unresolved ORDER BY created DESC';
+$maxResults = $options['max'] ?? $options['m'] ?? 10;
+
+$issues = $jiraClient->getIssues($jql, (int) $maxResults);
+$jiraClient->listIssues($issues);

@@ -1,0 +1,43 @@
+{
+    "name": "oguzhantogay/jira-cli",
+    "description": "A PHP CLI tool to list Jira issues from the terminal, using JQL queries to filter and display results.",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "YourVendor\\JiraCLI\\": "src/"
+        }
+    },
+    "bin": [
+        "bin/jira-cli"
+    ],
+    "require": {
+        "php": "^8.0",
+        "guzzlehttp/guzzle": "^7.9"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0"
+    },
+    "scripts": {
+        "test": "phpunit"
+    },
+    "authors": [
+        {
+            "name": "Your Name",
+            "email": "your-email@example.com"
+        }
+    ],
+    "keywords": [
+        "jira",
+        "cli",
+        "php",
+        "jira api",
+        "jira issues",
+        "command-line"
+    ],
+    "homepage": "https://github.com/your-vendor/jira-cli",
+    "support": {
+        "issues": "https://github.com/your-vendor/jira-cli/issues",
+        "source": "https://github.com/your-vendor/jira-cli"
+    }
+}
