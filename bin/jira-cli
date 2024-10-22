@@ -3,17 +3,79 @@
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use YourVendor\JiraCLI\JiraClient;
+use OguzhanTogay\JiraCLI\JiraClient;
+use Dotenv\Dotenv;
 
-$baseUri = getenv('JIRA_SERVER') ?: 'https://your-domain.atlassian.net';
-$username = getenv('JIRA_USERNAME');
-$apiToken = getenv('JIRA_API_TOKEN');
+// Load environment variables and make them mutable
+$dotenv = Dotenv::createImmutable(__DIR__ . '/../');
+$dotenv->load();
+
+$baseUri = $_ENV['JIRA_SERVER'];
+$username = $_ENV['JIRA_USERNAME'];
+$apiToken = $_ENV['JIRA_API_TOKEN'];
+
+// Validate that required environment variables are set
+if (!$baseUri || !$username || !$apiToken) {
+    echo "Error: JIRA_SERVER, JIRA_USERNAME, and JIRA_API_TOKEN must be set in the .env file.\n";
+    exit(1);
+}
 
 $jiraClient = new JiraClient($baseUri, $username, $apiToken);
 
-$options = getopt("q::m::", ["query::", "max::"]);
-$jql = $options['query'] ?? $options['q'] ?? 'assignee = currentUser() AND resolution = Unresolved ORDER BY created DESC';
-$maxResults = $options['max'] ?? $options['m'] ?? 10;
+$options = getopt("p:s::r::", ["project:", "status::", "range::", "id::", "list-projects"]);
 
-$issues = $jiraClient->getIssues($jql, (int) $maxResults);
+// Show usage if no arguments are provided
+if ($argc < 2) {
+    echo "Usage:\n";
+    echo "  -p, --project: Specify the project key (required)\n";
+    echo "  -s, --status: Filter issues by status (optional)\n";
+    echo "  --range: Specify a range for pagination (e.g., 5-10) (optional)\n";
+    echo "  --id: Show details for a specific issue by its ID or key (optional)\n";
+    echo "  --list-projects: List all available Jira projects\n";
+    exit(0);
+}
+
+if (isset($options['list-projects'])) {
+    // Show Jira projects
+    $projects = $jiraClient->getProjects();
+    $jiraClient->listProjects($projects);
+    exit(0);
+}
+
+if (isset($options['id'])) {
+    // Show details for a specific Jira issue by ID or key
+    $issueId = $options['id'];
+    $issue = $jiraClient->getIssueDetails($issueId);
+    $jiraClient->showIssueDetails($issue);
+    exit(0);
+}
+
+if (!isset($options['p']) && !isset($options['project'])) {
+    echo "Error: The project key (-p or --project) is required.\n";
+    exit(1);
+}
+
+$projectKey = $options['p'] ?? $options['project'];
+$status = $options['s'] ?? $options['status'] ?? null;
+$range = $options['r'] ?? $options['range'] ?? '0-9';
+$startAt = 0;
+$maxResults = 10;
+
+if ($range) {
+    if (!preg_match('/^\d+-\d+$/', $range)) {
+        echo "Error: The range should be in the format 'start-end', e.g., '5-10'.\n";
+        exit(1);
+    }
+
+    [$start, $end] = explode('-', $range);
+    $startAt = (int) $start;
+    $maxResults = (int) $end - (int) $start + 1;
+}
+$jql = "project = {$projectKey}";
+if ($status) {
+    $jql .= " AND status = '{$status}'";
+}
+$jql .= " ORDER BY created DESC";
+// Get and display Jira issues for the specified project, status, and pagination range
+$issues = $jiraClient->getIssuesByProject($projectKey, $status, $startAt, $maxResults);
 $jiraClient->listIssues($issues);

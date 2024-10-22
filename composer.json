@@ -5,7 +5,7 @@
     "license": "MIT",
     "autoload": {
         "psr-4": {
-            "YourVendor\\JiraCLI\\": "src/"
+            "OguzhanTogay\\JiraCLI\\": "src/"
         }
     },
     "bin": [
@@ -13,18 +13,21 @@
     ],
     "require": {
         "php": "^8.0",
-        "guzzlehttp/guzzle": "^7.9"
+        "guzzlehttp/guzzle": "^7.9",
+        "vlucas/phpdotenv": "^5.6"
     },
     "require-dev": {
-        "phpunit/phpunit": "^10.0"
+        "phpunit/phpunit": "^10.0",
+        "friendsofphp/php-cs-fixer": "^3.64"
     },
     "scripts": {
-        "test": "phpunit"
+        "test": "phpunit",
+        "cs-fix": "php-cs-fixer fix"
     },
     "authors": [
         {
-            "name": "Your Name",
-            "email": "your-email@example.com"
+            "name": "Oğuzhan Togay",
+            "email": "ogitog@gmail.com"
         }
     ],
     "keywords": [
@@ -35,9 +38,9 @@
         "jira issues",
         "command-line"
     ],
-    "homepage": "https://github.com/your-vendor/jira-cli",
+    "homepage": "https://github.com/oguzhanT/jira-cli",
     "support": {
-        "issues": "https://github.com/your-vendor/jira-cli/issues",
-        "source": "https://github.com/your-vendor/jira-cli"
+        "issues": "https://github.com/oguzhanT/jira-cli/issues",
+        "source": "https://github.com/oguzhanT/jira-cli"
     }
 }
