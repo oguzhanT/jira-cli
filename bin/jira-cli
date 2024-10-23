@@ -1,25 +1,32 @@
 #!/usr/bin/env php
 <?php
-
+use OguzhanTogay\JiraCLI\JiraClient;
+use Dotenv\Dotenv;
+/**
+ * Find the autoload file dynamically by checking possible paths.
+ *
+ * @return string|null The path to the autoload file if found, or null if not found.
+ */
 function findAutoloadFile(): ?string
 {
-    $paths = [
-        __DIR__ . '/../../../autoload.php',
-        __DIR__ . '/../../autoload.php',
-        __DIR__ . '/../autoload.php',
-        __DIR__ . '/vendor/autoload.php', // If running directly inside the package directory.
-    ];
+    // Start from the current directory and move upwards.
+    $dir = __DIR__;
 
-    foreach ($paths as $path) {
-        if (file_exists($path)) {
-            return $path;
+    while ($dir !== dirname($dir)) {
+        $autoloadPath = $dir . '/vendor/autoload.php';
+
+        if (file_exists($autoloadPath)) {
+            return $autoloadPath;
         }
+
+        // Move up one directory level.
+        $dir = dirname($dir);
     }
 
-    return null;
+    return null; // Return null if no autoload file is found.
 }
 
-// Try to find and require the autoload file
+// Usage example:
 $autoloadFile = findAutoloadFile();
 if ($autoloadFile) {
     require_once $autoloadFile;
@@ -27,13 +34,44 @@ if ($autoloadFile) {
     echo 'Autoload not found. Please run "composer install" to generate the autoload file.' . PHP_EOL;
     exit(1);
 }
+/**
+ * Find the .env file dynamically by searching upwards from the given directory.
+ *
+ * @param string $startDir The directory to start searching from.
+ * @return string|null The path to the .env file if found, or null if not found.
+ */
+function findEnvFile(string $startDir): ?string
+{
+    $dir = $startDir;
 
-use OguzhanTogay\JiraCLI\JiraClient;
-use Dotenv\Dotenv;
+    // Traverse upwards through the directory structure
+    while ($dir !== dirname($dir)) {
+        $envPath = $dir . '/.env';
 
-// Load environment variables and make them mutable
-$dotenv = Dotenv::createImmutable(__DIR__ . '/../');
-$dotenv->load();
+        if (file_exists($envPath)) {
+            return $envPath;
+        }
+
+        // Move up one level
+        $dir = dirname($dir);
+    }
+
+    return null; // Return null if .env file is not found
+}
+
+// Usage example:
+$envFile = findEnvFile(__DIR__);
+
+if ($envFile) {
+    // Load the .env file using Dotenv
+    $dotenv = Dotenv::createImmutable(dirname($envFile));
+    $dotenv->load();
+} else {
+    echo "Error: .env file not found.\n";
+    exit(1);
+}
+
+
 
 $baseUri = $_ENV['JIRA_SERVER'];
 $username = $_ENV['JIRA_USERNAME'];
