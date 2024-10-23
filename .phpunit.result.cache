@@ -1,0 +1,1 @@
+{"version":1,"defects":{"JiraClientTest::testGetIssueDetailsSuccess":8,"JiraClientTest::testGetIssueDetailsFailure":7,"JiraClientTest::testShowIssueDescription":8},"times":{"JiraClientTest::testGetIssueDetailsSuccess":0.003,"JiraClientTest::testGetIssueDetailsFailure":0.009,"JiraClientTest::testShowIssueDescription":0}}
