@@ -1,7 +1,15 @@
 #!/usr/bin/env php
 <?php
+
+use OguzhanTogay\JiraCLI\Command\CreateIssueCommand;
 use OguzhanTogay\JiraCLI\JiraClient;
+use OguzhanTogay\JiraCLI\Command\ListProjectsCommand;
+use OguzhanTogay\JiraCLI\Command\ShowIssueCommand;
+use OguzhanTogay\JiraCLI\Command\ListIssuesCommand;
+use Symfony\Component\Console\Application;
 use Dotenv\Dotenv;
+
+
 /**
  * Find the autoload file dynamically by checking possible paths.
  *
@@ -62,8 +70,10 @@ function findEnvFile(string $startDir): ?string
 // Usage example:
 $envFile = findEnvFile(__DIR__);
 
+
+// Load environment variables
+$envFile = findEnvFile(__DIR__);
 if ($envFile) {
-    // Load the .env file using Dotenv
     $dotenv = Dotenv::createImmutable(dirname($envFile));
     $dotenv->load();
 } else {
@@ -71,74 +81,31 @@ if ($envFile) {
     exit(1);
 }
 
-
-
+// Validate environment variables
 $baseUri = $_ENV['JIRA_SERVER'];
 $username = $_ENV['JIRA_USERNAME'];
 $apiToken = $_ENV['JIRA_API_TOKEN'];
-
-// Validate that required environment variables are set
 if (!$baseUri || !$username || !$apiToken) {
     echo "Error: JIRA_SERVER, JIRA_USERNAME, and JIRA_API_TOKEN must be set in the .env file.\n";
     exit(1);
 }
 
+// Instantiate JiraClient
 $jiraClient = new JiraClient($baseUri, $username, $apiToken);
 
-$options = getopt("p:s::r::", ["project:", "status::", "range::", "id::", "list-projects"]);
+// Set up Symfony Console application
+$application = new Application('Jira CLI Tool', '1.2.0');
 
-// Show usage if no arguments are provided
-if ($argc < 2) {
-    echo "Usage:\n";
-    echo "  -p, --project: Specify the project key (required)\n";
-    echo "  -s, --status: Filter issues by status (optional)\n";
-    echo "  --range: Specify a range for pagination (e.g., 5-10) (optional)\n";
-    echo "  --id: Show details for a specific issue by its ID or key (optional)\n";
-    echo "  --list-projects: List all available Jira projects\n";
-    exit(0);
-}
+// Add Commands
+$application->add(new ListProjectsCommand($jiraClient));
+$application->add(new ShowIssueCommand($jiraClient));
+$application->add(new ListIssuesCommand($jiraClient));
+$application->add(new CreateIssueCommand($jiraClient));
 
-if (isset($options['list-projects'])) {
-    // Show Jira projects
-    $projects = $jiraClient->getProjects();
-    $jiraClient->listProjects($projects);
-    exit(0);
-}
-
-if (isset($options['id'])) {
-    // Show details for a specific Jira issue by ID or key
-    $issueId = $options['id'];
-    $issue = $jiraClient->getIssueDetails($issueId);
-    $jiraClient->showIssueDetails($issue);
-    exit(0);
-}
-
-if (!isset($options['p']) && !isset($options['project'])) {
-    echo "Error: The project key (-p or --project) is required.\n";
+// Run application
+try {
+    $application->run();
+} catch (Exception $e) {
+    echo "Error: " . $e->getMessage() . "\n";
     exit(1);
 }
-
-$projectKey = $options['p'] ?? $options['project'];
-$status = $options['s'] ?? $options['status'] ?? null;
-$range = $options['r'] ?? $options['range'] ?? '0-9';
-$startAt = 0;
-$maxResults = 10;
-
-if ($range) {
-    if (!preg_match('/^\d+-\d+$/', $range)) {
-        echo "Error: The range should be in the format 'start-end', e.g., '5-10'.\n";
-        exit(1);
-    }
-
-    [$start, $end] = explode('-', $range);
-    $startAt = (int) $start;
-    $maxResults = (int) $end - (int) $start + 1;
-}
-$jql = "project = {$projectKey}";
-if ($status) {
-    $jql .= " AND status = '{$status}'";
-}
-$jql .= " ORDER BY created DESC";
-// Get and display Jira issues for the specified project, status, and pagination range
-$issues = $jiraClient->getIssuesByProject($projectKey, $status, $startAt, $maxResults);
-$jiraClient->listIssues($issues);

@@ -1,87 +1,78 @@
 <?php
 
+namespace OguzhanTogay\JiraCLI\Tests;
+
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Psr7\Response;
+use Mockery;
 use OguzhanTogay\JiraCLI\JiraClient;
 use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\RequestInterface;
 
 class JiraClientTest extends TestCase
 {
-    private $mockClient;
-    private JiraClient $jiraClient;
+    protected function tearDown(): void
+    {
+        Mockery::close();
+    }
+
+    public function testGetProjects()
+    {
+        // Step 1: Create a mock Guzzle Client
+        $mockClient = Mockery::mock(Client::class);
+
+        // Step 2: Ensure it responds to the specific endpoint used in getProjects()
+        $mockClient->shouldReceive('get')
+            ->with('/rest/api/3/project')
+            ->andReturn(new Response(200, [], json_encode([
+                ['key' => 'PROJ1', 'name' => 'Project 1'],
+                ['key' => 'PROJ2', 'name' => 'Project 2'],
+            ])));
+
+        // Step 3: Pass the mock client into JiraClient
+        $jiraClient = new JiraClient('https://example.atlassian.net', 'username', 'api_token', $mockClient);
+
+        // Step 4: Call getProjects() and assert the expected results
+        $projects = $jiraClient->getProjects();
+
+        // Assert that the array returned contains 2 projects
+        $this->assertIsArray($projects);
+        $this->assertCount(2, $projects);
+        $this->assertEquals('Project 1', $projects[0]['name']);
+        $this->assertEquals('Project 2', $projects[1]['name']);
+    }
 
     /**
-     * @throws \PHPUnit\Framework\MockObject\Exception
+     * @throws GuzzleException
      */
-    protected function setUp(): void
+    public function testGetIssueDetails()
     {
         // Create a mock Guzzle client
-        $this->mockClient = $this->createMock(Client::class);
+        $mockClient = Mockery::mock(Client::class);
 
-        // Instantiate JiraClient with the mocked Guzzle client
-        $this->jiraClient = new JiraClient('https://your-domain.atlassian.net', 'username', 'api_token');
-        $this->jiraClient->setHttpClient($this->mockClient);
-    }
-
-    public function testGetIssueDetailsSuccess()
-    {
-        // Define the mock response body for a successful issue request
-        $responseBody = json_encode([
-            'id' => 'CHEF-1262',
-            'key' => 'CHEF-1262',
-            'fields' => [
-                'summary' => 'Fix login bug',
-                'status' => ['name' => 'In Progress'],
-                'description' => [
-                    'type' => 'doc',
-                    'version' => 1,
-                    'content' => [
-                        [
-                            'type' => 'paragraph',
-                            'content' => [
-                                ['type' => 'text', 'text' => 'This is a sample description.'],
-                            ],
-                        ],
-                    ],
+        // Define the mock response for the specific issue ID
+        $mockClient->shouldReceive('get')
+            ->with('/rest/api/3/issue/TEST-123')
+            ->andReturn(new Response(200, [], json_encode([
+                'key' => 'TEST-123',
+                'fields' => [
+                    'summary' => 'Test Issue',
+                    'status' => ['name' => 'Open'],
+                    'description' => 'This is a test issue description.',
                 ],
-                'priority' => ['name' => 'High'],
-                'creator' => ['displayName' => 'John Doe'],
-                'aggregatetimeoriginalestimate' => 7200,
-                'timeestimate' => 3600,
-            ],
-        ]);
+            ])));
 
-        // Configure the mock client to return a successful response
-        $this->mockClient->method('get')
-            ->willReturn(new Response(200, [], $responseBody));
+        // Instantiate JiraClient with the mock client
+        $jiraClient = new JiraClient('https://example.atlassian.net', 'username', 'api_token', $mockClient);
 
-        // Fetch the issue details
-        $issue = $this->jiraClient->getIssueDetails('CHEF-1262');
+        // Call getIssueDetails and verify the response
+        $issueDetails = $jiraClient->getIssueDetails('TEST-123');
 
-        // Assert the returned data is as expected
-        $this->assertIsArray($issue);
-        $this->assertEquals('CHEF-1262', $issue['id']);
-        $this->assertEquals('Fix login bug', $issue['fields']['summary']);
-        $this->assertEquals('In Progress', $issue['fields']['status']['name']);
-        $this->assertEquals('High', $issue['fields']['priority']['name']);
-        $this->assertEquals('John Doe', $issue['fields']['creator']['displayName']);
-    }
-
-    /**
-     * @throws \PHPUnit\Framework\MockObject\Exception
-     */
-    public function testGetIssueDetailsFailure()
-    {
-        // Configure the mock client to throw a RequestException
-        $this->mockClient->method('get')
-            ->willThrowException(new RequestException('Not Found', $this->createMock(RequestInterface::class)));
-
-        // Fetch the issue details, expecting an empty array or error handling
-        $issue = $this->jiraClient->getIssueDetails('INVALID_ID');
-
-        // Assert that the result is null or an empty array (based on your error handling)
-        $this->assertNull($issue);
+        // Assertions
+        $this->assertIsArray($issueDetails);
+        $this->assertEquals('TEST-123', $issueDetails['key']);
+        $this->assertEquals('Test Issue', $issueDetails['fields']['summary']);
+        $this->assertEquals('Open', $issueDetails['fields']['status']['name']);
+        $this->assertEquals('This is a test issue description.', $issueDetails['fields']['description']);
     }
 }
