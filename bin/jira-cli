@@ -1,7 +1,12 @@
 #!/usr/bin/env php
 <?php
 
+use OguzhanTogay\JiraCLI\Command\AssignIssueCommand;
+use OguzhanTogay\JiraCLI\Command\ConfigureAccountIdCommand;
 use OguzhanTogay\JiraCLI\Command\CreateIssueCommand;
+use OguzhanTogay\JiraCLI\Command\CreateProjectCommand;
+use OguzhanTogay\JiraCLI\Command\ShowUserDetailCommand;
+use OguzhanTogay\JiraCLI\Command\ShowWorkLogCommand;
 use OguzhanTogay\JiraCLI\JiraClient;
 use OguzhanTogay\JiraCLI\Command\ListProjectsCommand;
 use OguzhanTogay\JiraCLI\Command\ShowIssueCommand;
@@ -101,7 +106,11 @@ $application->add(new ListProjectsCommand($jiraClient));
 $application->add(new ShowIssueCommand($jiraClient));
 $application->add(new ListIssuesCommand($jiraClient));
 $application->add(new CreateIssueCommand($jiraClient));
-
+$application->add(new CreateProjectCommand($jiraClient));
+$application->add(new AssignIssueCommand($jiraClient));
+$application->add(new ShowWorkLogCommand($jiraClient));
+$application->add(new ShowUserDetailCommand($jiraClient));
+$application->add(new ConfigureAccountIdCommand($jiraClient));
 // Run application
 try {
     $application->run();

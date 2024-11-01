@@ -1,194 +1,140 @@
-# Jira CLI
 
-A PHP CLI tool to interact with Jira issues directly from the terminal. This tool allows you to list Jira projects, list issues by project, filter by status, paginate results, and view detailed information about specific issues.
+# Jira CLI Tool
+
+![Jira CLI](https://img.shields.io/badge/Jira-CLI-blue) ![Platform](https://img.shields.io/badge/Platform-Mac%20%7C%20Linux%20%7C%20Windows-lightgrey)
+
+A powerful, easy-to-use CLI tool for interacting with Jira, making it simple to manage issues, track worklogs, and automate common tasks right from your terminal. Perfect for developers and project managers who want to streamline their Jira workflows.
 
 ## Features
 
-- List all projects in your Jira instance.
-- List issues from a specific project.
-- Filter issues by status.
-- Paginate through issues.
-- View details of a specific issue.
+- View, create, edit, assign, and delete Jira issues
+- Track daily, weekly, biweekly, or monthly worklogs with detailed or summarized views
+- Retrieve user details and set environment configurations automatically
 
-## Requirements
+## Supported Platforms
 
-- PHP 8.0 or higher
-- Composer
-- Jira account and API token
-- Jira instance (e.g., https://your-domain.atlassian.net)
+| Platform | Supported | Notes                  |
+|----------|-----------|------------------------|
+| macOS    | ✅         | Requires PHP installed |
+| Linux    | ✅         | Requires PHP installed |
+| Windows  | ✅         | Requires PHP installed |
 
 ## Installation
 
-1. **Clone the repository** (if you're using Git):
-   ```bash
-   git clone https://github.com/oguzhanT/jira-cli.git
-   cd jira-cli
-   ```
+1. **Clone the repository**:
+    ```bash
+    git clone https://github.com/oguzhanT/jira-cli.git
+    cd jira-cli
+    ```
 
 2. **Install dependencies**:
-   Run the following command in the root of the project to install required packages:
-   ```bash
-   composer install
-   ```
+    ```bash
+    composer install
+    ```
 
-3. **Make the CLI script executable**:
-   ```bash
-   chmod +x bin/jira-cli
-   ```
+3. **Configure your environment**:
+    - Copy the `.env.example` file to `.env` and fill in your Jira details:
+    ```plaintext
+    JIRA_SERVER=https://your-jira-instance.atlassian.net
+    JIRA_USERNAME=your-email@example.com
+    JIRA_API_TOKEN=your-jira-api-token
+    ```
 
-4. **Set up environment variables**:
-   Create a `.env` file in the root directory of your project and add the following:
-   ```
-   JIRA_SERVER=https://your-domain.atlassian.net
-   JIRA_USERNAME=your-email@example.com
-   JIRA_API_TOKEN=your-api-token
-   ```
+4. **Set up account ID**:
+    - Run the following command to automatically set your `JIRA_ACCOUNT_ID` in `.env`:
+    ```bash
+    php bin/console configure-account-id
+    ```
 
-   Replace `https://your-domain.atlassian.net`, `your-email@example.com`, and `your-api-token` with your actual Jira server URL, username, and API token.
+## Commands
 
-## Usage
+### Issue Management
 
-### Global Installation
-
-If you want to use this tool globally, you can install it using Composer:
-
+#### View Issue Details
+Display details for a specific issue by key.
 ```bash
-composer global require oguzhantogay/jira-cli
+php bin/console show-issue --issueKey=ISSUE-123
 ```
 
-Make sure your global Composer `bin` directory is in your system's `PATH`:
-
+#### Create a New Issue
+Interactively create a new issue in Jira.
 ```bash
-export PATH="$HOME/.composer/vendor/bin:$PATH"
+php bin/console create-issue
 ```
+You will be prompted for details such as project, summary, description, issue type, and priority.
 
-### List All Jira Projects
-
-To list all Jira projects in your instance:
-
+#### Edit an Issue
+Edit details of an existing issue.
 ```bash
-php bin/jira-cli --list-projects
+php bin/console edit-issue --issueKey=ISSUE-123
 ```
+Provides prompts for modifying fields like summary, description, assignee, issue type, and priority.
 
-This command will display a list of all projects with their keys and names.
-
-### List Issues by Project
-
-To list issues from a specific project, use the `-p` or `--project` option:
-
+#### Assign an Issue
+Assign an issue to a user by account ID.
 ```bash
-php bin/jira-cli -p PROJECT_KEY
+php bin/console assign-issue --issueKey=ISSUE-123 --assignee=account_id
 ```
+Alternatively, use `--projectKey` to choose from a list of assignable users.
 
-Replace `PROJECT_KEY` with the key of the project you want to list issues from.
-
-### Filter Issues by Status
-
-To filter issues by status (e.g., "In Progress", "Done"):
-
+#### Delete an Issue
+Delete a specified issue.
 ```bash
-php bin/jira-cli -p PROJECT_KEY -s "In Progress"
+php bin/console delete-issue --issueKey=ISSUE-123
 ```
 
-This will list all issues in the specified project that have the status "In Progress".
+### Worklog Tracking
 
-### Paginate Issue Results
-
-To paginate through issues, use the `--range` option to specify a range:
-
+#### Show Worklog Summary
+View the total time logged for a specified period (daily, weekly, biweekly, monthly).
 ```bash
-php bin/jira-cli -p PROJECT_KEY --range=5-10
+php bin/console show-work-log --accountId=your_account_id --period=weekly
 ```
 
-This will list issues 5 through 10 for the specified project. The default range is `0-9`, which lists the first 10 issues.
-
-### View Issue Details
-
-To view detailed information about a specific issue, use the `--id` option:
-
+#### Show Detailed Worklog by Issue
+Get a breakdown of worklogs by issue for each day.
 ```bash
-php bin/jira-cli --id ISSUE-123
+php bin/console show-work-log --accountId=your_account_id --period=monthly --detailed
 ```
 
-Replace `ISSUE-123` with the ID or key of the issue you want to view. This will display details such as the issue summary, status, and description.
+### User Management
 
-## Environment Configuration
-
-Make sure to include the `.env` file in the root directory of your project. Here's an example of a typical `.env` file:
-
-```
-JIRA_SERVER=https://your-domain.atlassian.net
-JIRA_USERNAME=your-email@example.com
-JIRA_API_TOKEN=your-api-token
+#### Configure Account ID
+Automatically fetch and set your Jira `accountId` in the `.env` file.
+```bash
+php bin/console configure-account-id
 ```
 
-- **JIRA_SERVER**: The base URL of your Jira instance.
-- **JIRA_USERNAME**: Your Jira username or email.
-- **JIRA_API_TOKEN**: Your API token generated from Jira. [Generate a new API token here](https://id.atlassian.com/manage/api-tokens).
+#### Show User Details
+Retrieve details for the authenticated user.
+```bash
+php bin/console show-user-detail
+```
 
-## Example Commands
+### Example Workflows
 
-Here are a few example commands to help you get started:
+1. **Set up and View Your User Details**:
+    ```bash
+    php bin/console configure-account-id
+    php bin/console show-user-detail
+    ```
 
-- **List all projects**:
-  ```bash
-  php bin/jira-cli --list-projects
-  ```
+2. **Log and Track Work**:
+    ```bash
+    php bin/console create-issue
+    php bin/console assign-issue --issueKey=ISSUE-123 --assignee=account_id
+    php bin/console show-work-log --accountId=your_account_id --period=daily --detailed
+    ```
 
-- **List issues for a specific project**:
-  ```bash
-  php bin/jira-cli -p MYPROJECT
-  ```
+## Contribution
 
-- **List issues with "In Progress" status**:
-  ```bash
-  php bin/jira-cli -p MYPROJECT -s "In Progress"
-  ```
-
-- **List issues from 5 to 10**:
-  ```bash
-  php bin/jira-cli -p MYPROJECT --range=5-10
-  ```
-
-- **Show details of a specific issue**:
-  ```bash
-  php bin/jira-cli --id MYPROJECT-123
-  ```
-
-## Contributing
-
-Contributions are welcome! If you find any issues or have suggestions for improvement, please open an issue or create a pull request.
-
+If you’d like to contribute to this project:
 1. Fork the repository.
-2. Create a new branch for your feature or bugfix:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-3. Make your changes.
-4. Test thoroughly.
-5. Submit a pull request with a detailed description of your changes.
-
-## Testing
-
-To run tests, use the following command:
-
-```bash
-composer tests
-```
-
-Make sure to write tests for any new features or bugfixes.
+2. Create a feature branch (`git checkout -b feature-branch`).
+3. Commit your changes (`git commit -m "Add a new feature"`).
+4. Push to the branch (`git push origin feature-branch`).
+5. Create a pull request.
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
-
-## Support
-
-If you encounter any issues or have questions, please use the following links:
-
-- **Issues**: [Submit an issue](https://github.com/oguzhanT/jira-cli/issues)
-- **Source**: [View source on GitHub](https://github.com/oguzhanT/jira-cli)
-
-## Author
-
-Developed by Oğuzhan Togay. For any inquiries, please reach out via email at [ogitog@gmail.com](mailto:ogitog@gmail.com).
+This project is licensed under the MIT License.

@@ -1,6 +1,8 @@
 /vendor/
 .env
 /.env
+/.env.testing
 /.idea
+.env.testing
 /.php-cs-fixer.cache
 /.phpunit.result.cache

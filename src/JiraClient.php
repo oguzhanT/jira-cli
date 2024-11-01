@@ -2,6 +2,7 @@
 
 namespace OguzhanTogay\JiraCLI;
 
+use DateTime;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\RequestException;
@@ -101,6 +102,194 @@ class JiraClient
             // Handle exceptions as needed
             return false;
         }
+    }
+
+    /**
+     * Creates a new project in Jira.
+     *
+     * @param  string     $name           The name of the project.
+     * @param  string     $key            The project key.
+     * @param  string     $projectTypeKey The type of the project (e.g., software, business).
+     * @param  string     $lead           The username of the project lead.
+     * @return array|null The created project details, or null if an error occurred.
+     */
+    public function createProject(string $name, string $key, string $projectTypeKey, string $lead): ?array
+    {
+        $data = [
+            'name' => $name,
+            'key' => $key,
+            'projectTypeKey' => $projectTypeKey,
+            'lead' => $lead,
+        ];
+
+        try {
+            $response = $this->client->post('/rest/api/3/project', [
+                'json' => $data,
+            ]);
+
+            return json_decode($response->getBody()->getContents(), true);
+        } catch (GuzzleException $e) {
+            // Optionally log the error or handle it as needed
+            return null;
+        }
+    }
+
+    /**
+     * Retrieves a list of assignable users for a project.
+     *
+     * @param  string $projectKey The key of the project to retrieve assignable users.
+     * @return array  List of assignable users with display names and account IDs.
+     */
+    public function getAssignableUsers(string $projectKey): array
+    {
+        try {
+            $response = $this->client->get('/rest/api/3/user/assignable/search', [
+                'query' => [
+                    'project' => $projectKey,
+                    'maxResults' => 50,
+                ],
+            ]);
+
+            $users = json_decode($response->getBody()->getContents(), true);
+
+            return array_map(fn ($user) => ['name' => $user['displayName'], 'accountId' => $user['accountId']], $users);
+        } catch (GuzzleException $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Assigns a user to an issue in Jira.
+     *
+     * @param  string $issueKey  The key of the issue to assign.
+     * @param  string $accountId The accountId of the user to assign to the issue.
+     * @return bool   True if assignment was successful, false otherwise.
+     */
+    public function assignIssue(string $issueKey, string $accountId): bool
+    {
+        $data = [
+            'accountId' => $accountId,
+        ];
+
+        try {
+            $response = $this->client->put("/rest/api/3/issue/{$issueKey}/assignee", [
+                'json' => $data,
+            ]);
+
+            return $response->getStatusCode() === 204;
+        } catch (GuzzleException $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Retrieves the details of the currently authenticated user.
+     *
+     * @return array|null The user details, including accountId, or null if an error occurred.
+     */
+    public function getUserDetails(): ?array
+    {
+        try {
+            $response = $this->client->get('/rest/api/3/myself');
+
+            return json_decode($response->getBody()->getContents(), true);
+        } catch (GuzzleException $e) {
+            // Handle exception if needed
+            return null;
+        }
+    }
+
+    /**
+     * Sets or updates the JIRA_ACCOUNT_ID in the .env file.
+     *
+     * @param  string $accountId The accountId to set in the .env file.
+     * @return bool   True if successful, false otherwise.
+     */
+    public function setAccountIdInEnv(string $accountId): bool
+    {
+        $dir = __DIR__;
+
+        $envPath = null;
+        // Traverse upwards through the directory structure
+        while ($dir !== dirname($dir)) {
+            $envPath = $dir . '/.env';
+
+            if (file_exists($envPath)) {
+                return $envPath;
+            }
+
+            // Move up one level
+            $dir = dirname($dir);
+        }
+
+        if (!file_exists($envPath)) {
+            return false;
+        }
+
+        $envContent = file_get_contents($envPath);
+        $pattern = '/^JIRA_ACCOUNT_ID=.*$/m';
+
+        // If JIRA_ACCOUNT_ID already exists, update it; otherwise, add it.
+        if (preg_match($pattern, $envContent)) {
+            $envContent = preg_replace($pattern, "JIRA_ACCOUNT_ID={$accountId}", $envContent);
+        } else {
+            $envContent .= PHP_EOL . "JIRA_ACCOUNT_ID={$accountId}" . PHP_EOL;
+        }
+
+        return file_put_contents($envPath, $envContent) !== false;
+    }
+
+    /**
+     * Retrieves the total time logged by the user for each day in a specified date range, optionally with details per issue.
+     *
+     * @param  string   $userAccountId The accountId of the user for whom to retrieve worklogs.
+     * @param  DateTime $startDate     The start date of the range.
+     * @param  DateTime $endDate       The end date of the range.
+     * @param  bool     $detailed      Whether to include detailed output by issue.
+     * @return array    An associative array with dates as keys, each containing total time or issue-by-issue details.
+     */
+    public function getWorkLogTotalsByDateRange(string $userAccountId, DateTime $startDate, DateTime $endDate, bool $detailed = false): array
+    {
+        $totalsByDate = [];
+        $currentDate = clone $startDate;
+
+        // Initialize totals array with 0 for each date in range
+        while ($currentDate <= $endDate) {
+            $totalsByDate[$currentDate->format('Y-m-d')] = $detailed ? [] : 0;
+            $currentDate->modify('+1 day');
+        }
+
+        try {
+            $response = $this->client->get('/rest/api/3/search', [
+                'query' => [
+                    'jql' => "worklogAuthor = {$userAccountId} AND worklogDate >= '{$startDate->format('Y-m-d')}' AND worklogDate <= '{$endDate->format('Y-m-d')}'",
+                    'fields' => 'worklog',
+                    'maxResults' => 1000,
+                ],
+            ]);
+
+            $issues = json_decode($response->getBody()->getContents(), true)['issues'];
+
+            // Sum worklog entries for each day, optionally grouped by issue
+            foreach ($issues as $issue) {
+                $issueKey = $issue['key'];
+                foreach ($issue['fields']['worklog']['worklogs'] as $worklog) {
+                    $worklogDate = substr($worklog['started'], 0, 10);
+                    $timeSpent = $worklog['timeSpentSeconds'];
+                    if ($worklog['author']['accountId'] === $userAccountId && isset($totalsByDate[$worklogDate])) {
+                        if ($detailed) {
+                            $totalsByDate[$worklogDate][$issueKey] = ($totalsByDate[$worklogDate][$issueKey] ?? 0) + $timeSpent;
+                        } else {
+                            $totalsByDate[$worklogDate] += $timeSpent;
+                        }
+                    }
+                }
+            }
+        } catch (GuzzleException $e) {
+            // Handle exception if needed
+        }
+
+        return $totalsByDate;
     }
 
     /**
