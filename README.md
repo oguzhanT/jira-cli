@@ -8,7 +8,7 @@ A powerful, easy-to-use CLI tool for interacting with Jira, making it simple to 
 ## Features
 
 - View, create, edit, assign, and delete Jira issues
-- Track daily, weekly, biweekly, or monthly worklogs with detailed or summarized views
+- Track daily, weekly or monthly worklogs with detailed or summarized views
 - Retrieve user details and set environment configurations automatically
 
 ## Supported Platforms
