@@ -138,3 +138,6 @@ If you’d like to contribute to this project:
 ## License
 
 This project is licensed under the MIT License.
+
+[![Sponsor on GitHub](https://img.shields.io/badge/Sponsor_on_GitHub-FF69B4?style=for-the-badge&logo=github-sponsors&logoColor=white)](https://github.com/sponsors/oguzhanT)
+
