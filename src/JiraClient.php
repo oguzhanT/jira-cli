@@ -260,33 +260,126 @@ class JiraClient
         }
 
         try {
-            $response = $this->client->get('/rest/api/3/search', [
-                'query' => [
-                    'jql' => "worklogAuthor = {$userAccountId} AND worklogDate >= '{$startDate->format('Y-m-d')}' AND worklogDate <= '{$endDate->format('Y-m-d')}'",
-                    'fields' => 'worklog',
-                    'maxResults' => 1000,
-                ],
-            ]);
+            // Use the worklogDate and worklogAuthor parameters in JQL to narrow the search
+            $jql = "worklogAuthor = {$userAccountId} AND " .
+                "worklogDate >= '{$startDate->format('Y-m-d')}' AND " .
+                "worklogDate <= '{$endDate->format('Y-m-d')}'";
 
-            $issues = json_decode($response->getBody()->getContents(), true)['issues'];
+            // Process issues in batches to avoid memory issues with large datasets
+            $startAt = 0;
+            $batchSize = 50; // Process 50 issues at a time
+            $moreIssues = true;
 
-            // Sum worklog entries for each day, optionally grouped by issue
-            foreach ($issues as $issue) {
-                $issueKey = $issue['key'];
-                foreach ($issue['fields']['worklog']['worklogs'] as $worklog) {
-                    $worklogDate = substr($worklog['started'], 0, 10);
-                    $timeSpent = $worklog['timeSpentSeconds'];
-                    if ($worklog['author']['accountId'] === $userAccountId && isset($totalsByDate[$worklogDate])) {
-                        if ($detailed) {
-                            $totalsByDate[$worklogDate][$issueKey] = ($totalsByDate[$worklogDate][$issueKey] ?? 0) + $timeSpent;
-                        } else {
-                            $totalsByDate[$worklogDate] += $timeSpent;
+            // Store issue keys and summaries for detailed reports
+            $issueDetails = [];
+
+            while ($moreIssues) {
+                $response = $this->client->get('/rest/api/3/search', [
+                    'query' => [
+                        'jql' => $jql,
+                        'fields' => 'key,summary', // Only get essential fields
+                        'startAt' => $startAt,
+                        'maxResults' => $batchSize,
+                    ],
+                ]);
+
+                $issuesData = json_decode($response->getBody()->getContents(), true);
+                $issues = $issuesData['issues'] ?? [];
+
+                if (empty($issues)) {
+                    break; // No more issues to process
+                }
+
+                // Extract issue IDs for bulk worklog retrieval
+                $issueIds = [];
+                foreach ($issues as $issue) {
+                    $issueIds[] = $issue['id'];
+                    $issueDetails[$issue['key']] = $issue['fields']['summary'] ?? '';
+                }
+
+                // Fetch worklogs in bulk for all issues in this batch
+                // Use the worklog API endpoint that allows for bulk retrieval
+                foreach ($issueIds as $issueId) {
+                    $issueKey = null;
+                    foreach ($issues as $issue) {
+                        if ($issue['id'] === $issueId) {
+                            $issueKey = $issue['key'];
+                            break;
                         }
+                    }
+
+                    if (!$issueKey) continue;
+
+                    // Request worklogs for this issue
+                    $worklogStartAt = 0;
+                    $worklogBatchSize = 100;
+                    $moreWorklogs = true;
+
+                    while ($moreWorklogs) {
+                        $worklogResponse = $this->client->get("/rest/api/3/issue/{$issueKey}/worklog", [
+                            'query' => [
+                                'startAt' => $worklogStartAt,
+                                'maxResults' => $worklogBatchSize,
+                            ],
+                        ]);
+
+                        $worklogData = json_decode($worklogResponse->getBody()->getContents(), true);
+                        $worklogs = $worklogData['worklogs'] ?? [];
+
+                        if (empty($worklogs)) {
+                            break; // No more worklogs for this issue
+                        }
+
+                        // Process worklogs
+                        foreach ($worklogs as $worklog) {
+                            if ($worklog['author']['accountId'] !== $userAccountId) {
+                                continue; // Skip worklogs by other authors
+                            }
+
+                            $worklogDate = substr($worklog['started'], 0, 10);
+
+                            // Skip if outside our date range
+                            if (!isset($totalsByDate[$worklogDate])) {
+                                continue;
+                            }
+
+                            $timeSpent = $worklog['timeSpentSeconds'];
+
+                            if ($detailed) {
+                                if (!isset($totalsByDate[$worklogDate][$issueKey])) {
+                                    $totalsByDate[$worklogDate][$issueKey] = [
+                                        'timeSpent' => 0,
+                                        'summary' => $issueDetails[$issueKey] ?? ''
+                                    ];
+                                }
+                                $totalsByDate[$worklogDate][$issueKey]['timeSpent'] += $timeSpent;
+                            } else {
+                                $totalsByDate[$worklogDate] += $timeSpent;
+                            }
+                        }
+
+                        // Check if we need to fetch more worklogs
+                        $worklogStartAt += count($worklogs);
+                        $moreWorklogs = $worklogStartAt < $worklogData['total'];
+                    }
+                }
+
+                // Update for the next batch of issues
+                $startAt += count($issues);
+                $moreIssues = $startAt < $issuesData['total'];
+            }
+
+            // Clean up empty dates if requested
+            if (!empty($_GET['removeEmpty'] ?? false)) {
+                foreach ($totalsByDate as $date => $total) {
+                    if (($detailed && empty($total)) || (!$detailed && $total === 0)) {
+                        unset($totalsByDate[$date]);
                     }
                 }
             }
         } catch (GuzzleException $e) {
-            // Handle exception if needed
+            // Optionally log the error
+            // error_log('Error fetching worklogs: ' . $e->getMessage());
         }
 
         return $totalsByDate;
